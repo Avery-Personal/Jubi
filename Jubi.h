@@ -1,6 +1,7 @@
 #ifndef JUBI_H
 #define JUBI_H
 
+#include <stdlib.h>
 #include <math.h>
 
 #ifdef __cplusplus
@@ -9,12 +10,15 @@
 
 #define JUBI_VERSION_MAJOR 0
 #define JUBI_VERSION_MINOR 1
-#define JUBI_VERSION_PATCH 0
+#define JUBI_VERSION_PATCH 2
 
 #define JUBI_MAX_BODIES 1024
 #define JUBI_MAX_SHAPES 2048
 
 #define GRAVITY 9.81f
+#define TIME_STEP 0.016f // ~60 FPS
+#define TIME_STEP_120 0.008f // ~120 FPS
+
 #define PI 3.14159265358979323846
 
 typedef enum {
@@ -45,9 +49,17 @@ typedef struct {
 
 typedef struct {
     Body2D Bodies[JUBI_MAX_BODIES];
+    
     int BodyCount;
+    float Gravity;
+
+    int Destroyed; // 0 = Valid, 1 = Destroyed
 } JubiWorld2D;
 
+JubiWorld2D Jubi_CreateWorld2D();
+void Jubi_ClearWorld2D(JubiWorld2D *WORLD);
+void Jubi_DestroyWorld2D(JubiWorld2D *WORLD);
+int Jubi_WorldIsDestroyed(JubiWorld2D *WORLD);
 
 Vector2 JVector2_Add(Vector2 A, Vector2 B);
 Vector2 JVector2_Subtract(Vector2 A, Vector2 B);
@@ -76,9 +88,38 @@ Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
 
     JubiWorld2D Jubi_CreateWorld2D() {
         JubiWorld2D WORLD;
+
         WORLD.BodyCount = 0;
+        WORLD.Gravity = GRAVITY;
+        WORLD.Destroyed = 0;
 
         return WORLD;
+    }
+
+    void Jubi_ClearWorld2D(JubiWorld2D *WORLD) {
+        if (WORLD == NULL) return;
+        if (WORLD -> Destroyed) return;
+
+        WORLD -> BodyCount = 0;
+    }
+
+    void Jubi_DestroyWorld2D(JubiWorld2D *WORLD) {
+        if (WORLD == NULL) return;
+        if (WORLD -> Destroyed) return;
+
+        for (int i = 0; i < JUBI_MAX_BODIES; ++i) {
+            WORLD -> Bodies[i] = (Body2D){0};
+        }
+
+        WORLD -> BodyCount = 0;
+        WORLD -> Gravity = 0.0f;
+        WORLD -> Destroyed = 1;
+    }
+
+    int Jubi_WorldIsDestroyed(JubiWorld2D *WORLD) {
+        if (WORLD == NULL) return 1;
+
+        return WORLD -> Destroyed != 0;
     }
 
     // Vector2 Math

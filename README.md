@@ -1,6 +1,6 @@
-# Jubi v0.1.0
+# Jubi v0.1.2
 
-**Version:** 0.1.0
+**Version:** 0.1.2
 **License:** ALLPU or MIT
 **Copyright © 2025 Averi**
 
@@ -60,6 +60,14 @@ Jubi provides the user with a fully fledged list of vector math functions:
 
 Tests are designed to test & push the limits of what Jubi can do, and are placed under the `tests` folder. Each test has a detailed description on what their purpose is, the end result, alongside the creation/modification date. All tests are designed to be compiled in ***pure*** C, with no need of external libraries.
 
+## Constants & Limits
+
+Jubi uses fixed-size memory to stay leightweight & easy to use.
+
+`JUBI_MAX_BODIES` - Max number of bodies in a world.
+`GRAVITY` - World's set gravity.
+`JUBI_VERSION_MAJOR/MINOR/PATCH` - Version Macros
+
 # System Architecture
 
 ## System Dependencies
@@ -68,7 +76,7 @@ As previously stated, Jubi is made in pure C, with no use of external libraries.
 
 ## Current bugs & limitations
 
-Luckily, as of version `0.1.0`, Jubi has no *known* issues or limitations to its code.
+Luckily, as of version `0.1.2`, Jubi has no *known* issues or limitations to its code.
 
 ## Versioning
 
@@ -79,6 +87,20 @@ Macros `JUBI_VERSION_MAJOR`, `JUBI_VERSION_MINOR`, and `JUBI_VERSION_PATCH` are 
 - 3D Support
 - Improved Architecture/Code Size
 - Increased/Improved Memory Management
+
+# API Reference
+
+## World API
+
+### Create / Destroy
+
+```C
+JubiWorld2D Jubi_CreateWorld2D(void);
+void Jubi_ClearWorld2D(JubiWorld2D *WORLD);
+```
+
+> `Jubi_CreateWorld2D(void)` - Creates a new world with default gravity & an empty body list   
+> `Jubi_ClearWorld2D(JubiWorld2D *WORLD)` - Resets all   
 
 # License
 
