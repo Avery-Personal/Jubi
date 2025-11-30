@@ -7,10 +7,14 @@
     extern "C" {
 #endif
 
+#define JUBI_VERSION_MAJOR 0
+#define JUBI_VERSION_MINOR 1
+#define JUBI_VERSION_PATCH 0
+
 #define JUBI_MAX_BODIES 1024
 #define JUBI_MAX_SHAPES 2048
 
-#define GRAVITYF 9.81f
+#define GRAVITY 9.81f
 #define PI 3.14159265358979323846
 
 typedef enum {
@@ -39,6 +43,12 @@ typedef struct {
     float Mass;
 } Body2D;
 
+typedef struct {
+    Body2D Bodies[JUBI_MAX_BODIES];
+    int BodyCount;
+} JubiWorld2D;
+
+
 Vector2 JVector2_Add(Vector2 A, Vector2 B);
 Vector2 JVector2_Subtract(Vector2 A, Vector2 B);
 Vector2 JVector2_Multiply(Vector2 A, Vector2 B);
@@ -62,6 +72,15 @@ float JClamp(float Value, float MIN, float MAX);
 Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
 
 #ifdef JUBI_IMPLEMENTATION
+    // Implementation
+
+    JubiWorld2D Jubi_CreateWorld2D() {
+        JubiWorld2D WORLD;
+        WORLD.BodyCount = 0;
+
+        return WORLD;
+    }
+
     // Vector2 Math
 
     Vector2 JVector2_Add(Vector2 A, Vector2 B) {
@@ -200,7 +219,7 @@ Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
 
     // Vector2 Initializers
 
-    Body2D JBody2D_Create(Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+    Body2D JBody2D_CreateBox(Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
         Body2D BODY;
 
         BODY.Position = Position;
@@ -215,13 +234,15 @@ Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
 
     // Vector2 Physics
 
-    Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime) {
-        Vector2 RESULT = {0};
+    Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime) {
+        if (Body -> Type == BODY_DYNAMIC) {
+            Vector2 GRAVITY_FORCE = JVector2_Scale((Vector2){0, GRAVITY}, DeltaTime);
 
-        RESULT.y = GravityStrength * DeltaTime;
+            Body -> Velocity = JVector2_Add(Body->Velocity, GRAVITY_FORCE);
+        }
 
-        return RESULT;
-    }    
+        return Body -> Velocity;
+    }
 
 #endif // JUBI_IMPLEMENTATION
 
