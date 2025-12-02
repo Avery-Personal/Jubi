@@ -2,18 +2,18 @@
 ===========================================================
                      TEST INFORMATION
 
-TEST NAME: BoxCollision.c
-CREATION DATE: 25/11/29 | International Date Format
+TEST NAME: WorldCreation.c
+CREATION DATE: 25/12/1 | International Date Format
 LAST MODIFIED: 25/12/1 | International Date Format
 
 ===========================================================
                       TEST PURPOSE
 
 This test is to mark & benchmark the baby stage of Jubi.
-It's to test top-level functions of Vector2D creation.
+It's to test top-level functions of JubiWorld creation.
 
 If working correctly, the program should say that a
-collision is detected between two boxes.
+the Jubi world has X body(s).
 
 ===========================================================
                    LICENSE INFORMATION
@@ -31,14 +31,14 @@ file AND OR the end of the file.
 #include <stdio.h>
 
 int main() {
-    Body2D Box1 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
-    Body2D Box2 = JBody2D_CreateBox(NULL, (Vector2){2, 2}, (Vector2){2, 2}, BODY_STATIC, 0.0f);
+    JubiWorld2D WORLD = Jubi_CreateWorld2D();
     
-    if (Box1.Position.x < Box2.Position.x + Box2._Size.x && Box1.Position.x + Box1._Size.x > Box2.Position.x && Box1.Position.y < Box2.Position.y + Box2._Size.y && Box1.Position.y + Box1._Size.y > Box2.Position.y) {
-        printf("Collision detected!\n");
-    } else {
-        printf("No collision.\n");
-    }
+    Body2D Box1 = JBody2D_CreateBox(&WORLD, (Vector2){6, 6}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
+    Body2D Box2 = JBody2D_CreateBox(&WORLD, (Vector2){2, 4}, (Vector2){1, 2}, BODY_DYNAMIC, 5.5f);
+
+    Body2D Box3 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){3, 3}, BODY_STATIC, 0.0f);
+    
+    printf("World has %d body(s).\n", WORLD.BodyCount);
     
     return 0;
 }

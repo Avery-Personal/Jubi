@@ -260,15 +260,22 @@ Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
 
     // Vector2 Initializers
 
-    Body2D JBody2D_CreateBox(Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+    Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
         Body2D BODY;
-
+        
         BODY.Position = Position;
         BODY._Size = Size;
         BODY.Velocity = (Vector2){0, 0};
         BODY.Shape = SHAPE_BOX;
         BODY.Type = Type;
         BODY.Mass = Mass;
+
+        if (WORLD != NULL) {
+            if (WORLD -> Destroyed || WORLD -> BodyCount >= JUBI_MAX_BODIES) 
+                return (Body2D){0};
+            
+            WORLD -> Bodies[WORLD -> BodyCount++] = BODY;
+        }
 
         return BODY;
     }

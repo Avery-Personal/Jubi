@@ -42,8 +42,8 @@ JubiWorld3D 3DWorld = Jubi_CreateWorld3D();
 Bodies are stored in a fixed-size array (`JUBI_MAX_BODIES`) and can be boxes or circles.
 Bodies have 2 types `Static` & `Dynamic`, 2 shapes `Circle` & `Box`, `Position`, `Size`, `Velocity`, and a `Mass`. Example creation:
 ```C
-// JBody2D_CreateBox(Vector2 Position, Vector2 Size, BodyType2D Type, float Mass)
-Body2D Box = JBody2D_CreateBox((Vector2D){5.0, 17.0}, (Vector2D){4.0, 4.0}, BODY_DYNAMIC, 1.0f);
+// JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass)
+Body2D Box = JBody2D_CreateBox(NULL, (Vector2D){5.0, 17.0}, (Vector2D){4.0, 4.0}, BODY_DYNAMIC, 1.0f);
 ```
 
 There will be more advanced features later on, like custom collisions, but at the minute retain to `SHAPE_BOX` & `SHAPE_CIRCLE`.
