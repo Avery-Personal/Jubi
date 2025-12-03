@@ -22,6 +22,18 @@
 #define PI 3.14159265358979323846
 
 typedef enum {
+    JUBI_SUCCESS = 0,
+
+    JUBI_ERROR_NULL_WORLD,
+    JUBI_ERROR_WORLD_DESTROYED,
+    JUBI_ERROR_WORLD_FULL,
+    JUBI_ERROR_NULL_BODY,
+    JUBI_ERROR_BODY_NOT_IN_WORLD,
+
+    JUBI_ERROR_UNKNOWN = -1,
+} JubiResult;
+
+typedef enum {
     SHAPE_CIRCLE,
     SHAPE_BOX
 } Shape2D;
@@ -36,6 +48,8 @@ typedef struct {
     float y;
 } Vector2;
 
+typedef struct JubiWorld2D JubiWorld2D;
+
 typedef struct {
     Vector2 Position;
     Vector2 Velocity;
@@ -43,23 +57,41 @@ typedef struct {
 
     Shape2D Shape;
     BodyType2D Type;
-
     float Mass;
+
+    int Index; // Index in world (-1 if raw)
+    JubiWorld2D *WORLD;
 } Body2D;
 
-typedef struct {
+struct JubiWorld2D {
     Body2D Bodies[JUBI_MAX_BODIES];
     
     int BodyCount;
     float Gravity;
 
     int Destroyed; // 0 = Valid, 1 = Destroyed
-} JubiWorld2D;
+};
+
+// Jubi Global Helpers
+
+#define JUBI_SUCCESSFUL(Result) ((Result) == JUBI_SUCCESS)
+
+// Jubi Functions
+
+// World Management
 
 JubiWorld2D Jubi_CreateWorld2D();
 void Jubi_ClearWorld2D(JubiWorld2D *WORLD);
 void Jubi_DestroyWorld2D(JubiWorld2D *WORLD);
 int Jubi_WorldIsDestroyed(JubiWorld2D *WORLD);
+int Jubi_IsWorldValid(JubiWorld2D *WORLD);
+
+int Jubi_GetBodyIndex(JubiWorld2D *WORLD, Body2D *BODY);
+int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY);
+int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY);
+int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY);
+
+// Vector2 Math
 
 Vector2 JVector2_Add(Vector2 A, Vector2 B);
 Vector2 JVector2_Subtract(Vector2 A, Vector2 B);
@@ -81,7 +113,14 @@ Vector2 JVector2_Perpendicular(Vector2 A);
 
 float JClamp(float Value, float MIN, float MAX);
 
-Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
+// Vector2 Initializers
+
+Body2D JBody2D_Init(Vector2 Position, Vector2 Size, Shape2D Shape, BodyType2D Type, float Mass);
+Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass);
+
+// Vector2 Physics
+
+Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime);
 
 #ifdef JUBI_IMPLEMENTATION
     // Implementation
@@ -120,6 +159,65 @@ Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
         if (WORLD == NULL) return 1;
 
         return WORLD -> Destroyed != 0;
+    }
+
+    int Jubi_IsWorldValid(JubiWorld2D *WORLD) {
+        if (WORLD == NULL) return 0;
+        if (WORLD -> BodyCount < 0 || WORLD -> BodyCount > JUBI_MAX_BODIES) return 0;
+        if (WORLD -> Destroyed) return 0;
+
+        return 1;
+    }
+
+    // Global Helpers
+
+    int Jubi_GetBodyIndex(JubiWorld2D *WORLD, Body2D *BODY) {
+        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return 0;
+
+        for (int i = 0; i < WORLD -> BodyCount; i++)
+            if (&WORLD -> Bodies[i] == BODY)
+                return i;
+
+        return -1;
+    }
+
+    int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY) {
+        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return 0;
+
+        for (int i = 0; i < WORLD -> BodyCount; i++)
+            if (&WORLD -> Bodies[i] == BODY)
+                return 1;
+
+        return 0;
+    }
+
+    int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY) {
+        if (Jubi_IsWorldValid(WORLD) == 0) return -1;
+
+        int INDEX = WORLD -> BodyCount++;
+
+        WORLD -> Bodies[INDEX] = *BODY;
+        WORLD -> Bodies[INDEX].WORLD = WORLD;
+        WORLD -> Bodies[INDEX].Index = INDEX;
+
+        return INDEX;
+    }
+
+    int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY) {
+        if (Jubi_IsWorldValid(WORLD) == 0) return -1;
+
+        int INDEX = Jubi_GetBodyIndex(WORLD, BODY);
+        if (INDEX < 0) return 0;
+
+        for (int i = INDEX; i < WORLD -> BodyCount - 1; i++) {
+            WORLD -> Bodies[i] = WORLD -> Bodies[i + 1];
+            WORLD -> Bodies[i].Index = i;
+        }
+
+        WORLD -> Bodies[WORLD -> BodyCount - 1] = (Body2D){0};
+        WORLD -> BodyCount--;
+
+        return 1;
     }
 
     // Vector2 Math
@@ -260,21 +358,31 @@ Vector2 JVector2_Gravity(float GravityStrength, float DeltaTime);
 
     // Vector2 Initializers
 
-    Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+    Body2D JBody2D_Init(Vector2 Position, Vector2 Size, Shape2D Shape, BodyType2D Type, float Mass) {
         Body2D BODY;
-        
+
         BODY.Position = Position;
-        BODY._Size = Size;
         BODY.Velocity = (Vector2){0, 0};
-        BODY.Shape = SHAPE_BOX;
+        BODY._Size = Size;
+        BODY.Shape = Shape;
         BODY.Type = Type;
         BODY.Mass = Mass;
 
-        if (WORLD != NULL) {
-            if (WORLD -> Destroyed || WORLD -> BodyCount >= JUBI_MAX_BODIES) 
-                return (Body2D){0};
-            
-            WORLD -> Bodies[WORLD -> BodyCount++] = BODY;
+        BODY.Index = -1;
+        BODY.WORLD = NULL;
+
+        return BODY;
+    }
+
+    Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+        Body2D BODY = JBody2D_Init(Position, Size, SHAPE_BOX, Type, Mass);
+
+        if (Jubi_IsWorldValid(WORLD)) {
+            int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
+            if (INDEX < 0) return (Body2D){0};  
+
+            BODY.Index = INDEX;
+            BODY.WORLD = WORLD;
         }
 
         return BODY;
