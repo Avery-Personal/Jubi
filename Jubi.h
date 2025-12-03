@@ -1,3 +1,36 @@
+/*
+
+    Jubi Physics Library
+    --------------------
+
+    A simple 2D physics library for C/C++ projects.
+
+    Created by Avery | GitHub: @Avery-Personal
+
+    License: ALLPU License
+
+===========================================================
+                      VERSION INFORMATION
+
+Jubi Version: 0.1.5
+C Language Standard: C99
+C++ Language Standard: C++98 or C++20
+
+===========================================================
+                     PROJECT INFORMATION
+
+Project Description: A simple 2D physics library for C/C++ projects. It provides basic physics simulation features such as rigid body dynamics, collision detection, and response. The library is designed to be lightweight and easy to integrate into existing projects. It supports various shapes like circles and boxes, and allows for the creation of dynamic and static bodies within a world.
+Project Status: Early Development | IN DEVELOPMENT
+
+===========================================================
+                     LICENSE INFORMATION
+
+The following software is protected under the ALLPU license.
+More detailed information is present at the root LICENSE
+file AND OR the end of the file.
+
+*/
+
 #ifndef JUBI_H
 #define JUBI_H
 
@@ -16,6 +49,9 @@
 #define JUBI_MAX_SHAPES 2048
 
 #define GRAVITY 9.81f
+#define AIR_RESISTANCE 0.01f
+#define FRICTION 0.1f
+
 #define TIME_STEP 0.016f // ~60 FPS
 #define TIME_STEP_120 0.008f // ~120 FPS
 
@@ -25,6 +61,7 @@ typedef enum {
     JUBI_SUCCESS = 0,
 
     JUBI_ERROR_NULL_WORLD,
+    JUBI_ERROR_WORLD_CORRUPTED,
     JUBI_ERROR_WORLD_DESTROYED,
     JUBI_ERROR_WORLD_FULL,
     JUBI_ERROR_NULL_BODY,
@@ -47,6 +84,20 @@ typedef struct {
     float x;
     float y;
 } Vector2;
+
+// Collision Helpers
+
+typedef struct {
+    Vector2 Min;
+    Vector2 Max;
+} AABB;
+
+typedef struct {
+    Vector2 Center;
+    float Radius;
+} Circle2D;
+
+// Forward Declarations
 
 typedef struct JubiWorld2D JubiWorld2D;
 
@@ -91,6 +142,8 @@ int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY);
 int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY);
 int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY);
 
+void Jubi_StepWorld2D(JubiWorld2D *WORLD, float DeltaTime);
+
 // Vector2 Math
 
 Vector2 JVector2_Add(Vector2 A, Vector2 B);
@@ -121,6 +174,14 @@ Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, Bod
 // Vector2 Physics
 
 Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime);
+
+// Vector2 Collision Detection
+
+int JCollision_AABBvsAABB(const AABB A, const AABB B);
+int JCollision_CirclevsCircle(Circle2D A, Circle2D B);
+int JCollision_AABBvsCircle(AABB A, Circle2D B);
+
+void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
 
 #ifdef JUBI_IMPLEMENTATION
     // Implementation
@@ -162,17 +223,35 @@ Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime);
     }
 
     int Jubi_IsWorldValid(JubiWorld2D *WORLD) {
-        if (WORLD == NULL) return 0;
-        if (WORLD -> BodyCount < 0 || WORLD -> BodyCount > JUBI_MAX_BODIES) return 0;
-        if (WORLD -> Destroyed) return 0;
+        if (WORLD == NULL) return -1;
+        if (WORLD -> BodyCount < 0) return -2;
+        if (WORLD -> BodyCount > JUBI_MAX_BODIES) return -3;
+        if (WORLD -> Destroyed) return -4;
 
         return 1;
+    }
+
+    JubiResult Jubi_GetWorldError(int WORLD_VALIDITY) {
+        if (WORLD_VALIDITY == 1)
+            return JUBI_SUCCESS;
+        if (WORLD_VALIDITY == -1)
+            return JUBI_ERROR_NULL_WORLD;
+        if (WORLD_VALIDITY == -2)
+            return JUBI_ERROR_WORLD_CORRUPTED;
+        if (WORLD_VALIDITY == -3)
+            return JUBI_ERROR_WORLD_FULL;
+        if (WORLD_VALIDITY == -4)
+            return JUBI_ERROR_WORLD_DESTROYED;
+        if (WORLD_VALIDITY == -5)
+            return JUBI_ERROR_UNKNOWN;
+
+        return JUBI_SUCCESS;
     }
 
     // Global Helpers
 
     int Jubi_GetBodyIndex(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return 0;
+        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return -1;
 
         for (int i = 0; i < WORLD -> BodyCount; i++)
             if (&WORLD -> Bodies[i] == BODY)
@@ -182,7 +261,7 @@ Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime);
     }
 
     int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return 0;
+        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return -1;
 
         for (int i = 0; i < WORLD -> BodyCount; i++)
             if (&WORLD -> Bodies[i] == BODY)
@@ -398,6 +477,56 @@ Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime);
         }
 
         return Body -> Velocity;
+    }
+
+    // Vector2 Collision Detection
+
+    int JCollision_AABBvsAABB(const AABB A, const AABB B) {
+        if (A.Min.x < B.Max.x && A.Max.x > B.Min.x && A.Min.y < B.Max.y && A.Max.y > B.Min.y)
+            return 1;
+
+        return 0;
+    }
+
+    int JCollision_CirclevsCircle(Circle2D A, Circle2D B) {
+        float DISTANCE = JVector2_Distance(A.Center, B.Center);
+        float RADIUS_SUM = A.Radius + B.Radius;
+
+        if (DISTANCE < RADIUS_SUM)
+            return 1;
+
+        return 0;
+    }
+
+    int JCollision_AABBvsCircle(AABB A, Circle2D B) {
+        float CLOSEST_X = JClamp(B.Center.x, A.Min.x, A.Max.x);
+        float CLOSEST_Y = JClamp(B.Center.y, A.Min.y, A.Max.y);
+
+        float DISTANCE_X = B.Center.x - CLOSEST_X;
+        float DISTANCE_Y = B.Center.y - CLOSEST_Y;
+
+        float DISTANCE_SQUARED = (DISTANCE_X * DISTANCE_X) + (DISTANCE_Y * DISTANCE_Y);
+        float RADIUS_SQUARED = B.Radius * B.Radius;
+
+        if (DISTANCE_SQUARED < RADIUS_SQUARED)
+            return 1;
+
+        return 0;
+    }
+
+    void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B) {
+        A -> Velocity = (Vector2){0, 0};
+        B -> Velocity = (Vector2){0, 0};
+    }
+
+    int JCollision_ResolveCirclevsCircle(Body2D *A, Body2D *B) {
+        A -> Velocity = (Vector2){0, 0};
+        B -> Velocity = (Vector2){0, 0};
+    }
+
+    int JCollision_ResolveAABBvsCircle(Body2D *A, Body2D *B) {
+        A -> Velocity = (Vector2){0, 0};
+        B -> Velocity = (Vector2){0, 0};
     }
 
 #endif // JUBI_IMPLEMENTATION
