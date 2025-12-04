@@ -5,6 +5,7 @@
 
     A simple 2D physics library for C/C++ projects.
 
+    Early Development | IN DEVELOPMENT
     Created by Avery | GitHub: @Avery-Personal
 
     License: ALLPU License
@@ -12,15 +13,11 @@
 ===========================================================
                       VERSION INFORMATION
 
-Jubi Version: 0.1.5
+Jubi Version: 0.1.6
 C Language Standard: C99
 C++ Language Standard: C++98 or C++20
 
-===========================================================
-                     PROJECT INFORMATION
-
-Project Description: A simple 2D physics library for C/C++ projects. It provides basic physics simulation features such as rigid body dynamics, collision detection, and response. The library is designed to be lightweight and easy to integrate into existing projects. It supports various shapes like circles and boxes, and allows for the creation of dynamic and static bodies within a world.
-Project Status: Early Development | IN DEVELOPMENT
+Jubi Version Macro(s) & README Versions are official, stable/testable versions that work, all versions after are experimental.
 
 ===========================================================
                      LICENSE INFORMATION
@@ -43,7 +40,7 @@ file AND OR the end of the file.
 
 #define JUBI_VERSION_MAJOR 0
 #define JUBI_VERSION_MINOR 1
-#define JUBI_VERSION_PATCH 2
+#define JUBI_VERSION_PATCH 6
 
 #define JUBI_MAX_BODIES 1024
 #define JUBI_MAX_SHAPES 2048
@@ -251,7 +248,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     // Global Helpers
 
     int Jubi_GetBodyIndex(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return -1;
+        if (Jubi_IsWorldValid(WORLD) == 1 || BODY == NULL) return -1;
 
         for (int i = 0; i < WORLD -> BodyCount; i++)
             if (&WORLD -> Bodies[i] == BODY)
@@ -261,7 +258,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     }
 
     int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 0 || BODY == NULL) return -1;
+        if (Jubi_IsWorldValid(WORLD) == 1 || BODY == NULL) return -1;
 
         for (int i = 0; i < WORLD -> BodyCount; i++)
             if (&WORLD -> Bodies[i] == BODY)
@@ -271,7 +268,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     }
 
     int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 0) return -1;
+        if (Jubi_IsWorldValid(WORLD) == 1) return -1;
 
         int INDEX = WORLD -> BodyCount++;
 
@@ -283,7 +280,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     }
 
     int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 0) return -1;
+        if (Jubi_IsWorldValid(WORLD) == 1) return -1;
 
         int INDEX = Jubi_GetBodyIndex(WORLD, BODY);
         if (INDEX < 0) return 0;
@@ -456,7 +453,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
         Body2D BODY = JBody2D_Init(Position, Size, SHAPE_BOX, Type, Mass);
 
-        if (Jubi_IsWorldValid(WORLD)) {
+        if (Jubi_IsWorldValid(WORLD) == 1) {
             int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
             if (INDEX < 0) return (Body2D){0};  
 
@@ -470,11 +467,9 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     // Vector2 Physics
 
     Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime) {
-        if (Body -> Type == BODY_DYNAMIC) {
-            Vector2 GRAVITY_FORCE = JVector2_Scale((Vector2){0, GRAVITY}, DeltaTime);
+        if (Body -> Type != BODY_DYNAMIC) return Body -> Velocity;
 
-            Body -> Velocity = JVector2_Add(Body->Velocity, GRAVITY_FORCE);
-        }
+        Body -> Velocity.y += GRAVITY * DeltaTime;
 
         return Body -> Velocity;
     }

@@ -1,6 +1,6 @@
-# Jubi v0.1.2
+# Jubi v0.1.6
 
-**Version:** 0.1.2
+**Version:** 0.1.6
 **License:** ALLPU or MIT
 **Copyright © 2025 Averi**
 
@@ -76,7 +76,22 @@ As previously stated, Jubi is made in pure C, with no use of external libraries.
 
 ## Current bugs & limitations
 
-Luckily, as of version `0.1.2`, Jubi has no *known* issues or limitations to its code.
+### Major
+
+Jubi 0.1.4 >> 0.1.6
+  - `Jubi_IsWorldValid` function returned a fualty value (1), with all function(s) using said function checking for a **0** value.
+  - `JBody2D_CreateBox` function recieved a faulty value from `Jubi_IsWorldValid`, leading to NULL (No) world values being treated as a world, leading to silent errors in the creation process.
+
+Jubi 0.1.0 >> 0.1.6
+  - `JVector2_ApplyGravity` function used over-complicated code for a 3 lined system, alongside assigning a value rather than adding onto it. This lead to gravity not working correctly. Said function had been reworked over 3 times without this issue being fixed?
+
+### Minor
+
+As of said version, Jubi has no *known* minor issues to its code.
+
+### Limitations
+
+As of said version, Jubi has no *known* limitations to its code.
 
 ## Versioning
 

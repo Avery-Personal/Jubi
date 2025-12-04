@@ -2,18 +2,18 @@
 ===========================================================
                      TEST INFORMATION
 
-TEST NAME: IndexChecking.c
-CREATION DATE: 25/12/2 | International Date Format
-LAST MODIFIED: 25/12/2 | International Date Format
+TEST NAME: Velocity.c
+CREATION DATE: 25/12/3 | International Date Format
+LAST MODIFIED: 25/12/3 | International Date Format
 
 ===========================================================
                       TEST PURPOSE
 
-This test is to mark & benchmark the baby stage of Jubi.
-It's to test top-level functions of index/JubiBody2D creation.
+This test is to mark & benchmark the prototype stage of Jubi.
+It's to test top-level functions of 2D physics.
 
-If working correctly, the program should say the two indexes
-of the bodies (-1 if not in a world).
+If working correctly, the program should say the increasing
+velocity on the Y axis for the box.
 
 ===========================================================
                    LICENSE INFORMATION
@@ -31,15 +31,16 @@ file AND OR the end of the file.
 #include <stdio.h>
 
 int main() {
-    JubiWorld2D WORLD = Jubi_CreateWorld2D();
+    Body2D Box = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 0.4f);
 
-    Body2D Box1 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
-    Body2D Box2 = JBody2D_CreateBox(&WORLD, (Vector2){2, 2}, (Vector2){2, 2}, BODY_STATIC, 0.0f);
-    
-    printf("Box1 Index: %d\n", Box1.Index);
-    printf("Box2 Index: %d\n", Box2.Index);
-    
-    return 0;
+    printf("START VELOCITY\nY Velocity: %f\n\n", Box.Velocity.y);
+
+    for (int i=0; i < 10; i++) {
+        // We actually have a built in function for testing for once.
+        JVector2_ApplyGravity(&Box, TIME_STEP);
+
+        printf("Y Velocity: %f\n", Box.Velocity.y);
+    }
 }
 
 /*
