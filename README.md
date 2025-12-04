@@ -1,8 +1,8 @@
 # Jubi v0.1.6
 
-**Version:** 0.1.6
-**License:** ALLPU or MIT
-**Copyright © 2025 Averi**
+**Version:** 0.1.6  
+**License:** ALLPU or MIT  
+**Copyright © 2025 Averi**  
 
 Jubi is a single-file, public physics library written in pure C, for ease of use physics. Jubi is designed to be easily included in any project without external dependencies.
 
