@@ -55,6 +55,11 @@ file AND OR the end of the file.
 #define PI 3.14159265358979323846
 
 typedef enum {
+    JUBI_TRUE,
+    JUBI_FALSE
+} JubiBoolean;
+
+typedef enum {
     JUBI_SUCCESS = 0,
 
     JUBI_ERROR_NULL_WORLD,
@@ -105,7 +110,19 @@ typedef struct {
 
     Shape2D Shape;
     BodyType2D Type;
+
+    // The actual physiccssssss nooooooooo
     float Mass;
+    float InvMass;
+    float Restitution;
+    float Friction;
+
+    union {
+        AABB _AABB;
+        Circle2D Circle;
+    } ShapeData;
+
+    AABB Bounds;
 
     int Index; // Index in world (-1 if raw)
     JubiWorld2D *WORLD;
@@ -166,7 +183,7 @@ float JClamp(float Value, float MIN, float MAX);
 // Vector2 Initializers
 
 Body2D JBody2D_Init(Vector2 Position, Vector2 Size, Shape2D Shape, BodyType2D Type, float Mass);
-Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass);
+Body2D *JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass);
 
 // Vector2 Physics
 
@@ -179,6 +196,8 @@ int JCollision_CirclevsCircle(Circle2D A, Circle2D B);
 int JCollision_AABBvsCircle(AABB A, Circle2D B);
 
 void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
+
+void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
 
 #ifdef JUBI_IMPLEMENTATION
     // Implementation
@@ -204,7 +223,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
         if (WORLD == NULL) return;
         if (WORLD -> Destroyed) return;
 
-        for (int i = 0; i < JUBI_MAX_BODIES; ++i) {
+        for (int i=0; i < JUBI_MAX_BODIES; ++i) {
             WORLD -> Bodies[i] = (Body2D){0};
         }
 
@@ -245,12 +264,34 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
         return JUBI_SUCCESS;
     }
 
+    // World Physics
+
+    void Jubi_StepWorld2D(JubiWorld2D *WORLD, float DeltaTime) {
+        if (Jubi_IsWorldValid(WORLD) < 1) return;
+
+        for (int i=0; i < WORLD -> BodyCount; i++) {
+            Jubi_IntegrateBody(&WORLD -> Bodies[i], DeltaTime, WORLD->Gravity);
+        }
+
+        for (int i=0; i < WORLD -> BodyCount; i++) {
+            for (int j = i + 1; j < WORLD -> BodyCount; j++) {
+                Body2D *A = &WORLD -> Bodies[i];
+                Body2D *B = &WORLD -> Bodies[j];
+
+                if (A -> Type == BODY_STATIC && B -> Type == BODY_STATIC) continue;
+                if (JCollision_AABBvsAABB(A -> Bounds, B -> Bounds)) {
+                    JCollision_ResolveAABBvsAABB(A, B);
+                }
+            }
+        }
+    }
+
     // Global Helpers
 
     int Jubi_GetBodyIndex(JubiWorld2D *WORLD, Body2D *BODY) {
         if (Jubi_IsWorldValid(WORLD) == 1 || BODY == NULL) return -1;
 
-        for (int i = 0; i < WORLD -> BodyCount; i++)
+        for (int i=0; i < WORLD -> BodyCount; i++)
             if (&WORLD -> Bodies[i] == BODY)
                 return i;
 
@@ -260,7 +301,7 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY) {
         if (Jubi_IsWorldValid(WORLD) == 1 || BODY == NULL) return -1;
 
-        for (int i = 0; i < WORLD -> BodyCount; i++)
+        for (int i=0; i < WORLD -> BodyCount; i++)
             if (&WORLD -> Bodies[i] == BODY)
                 return 1;
 
@@ -432,6 +473,23 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
         return Value;
     }
 
+    // Global Initializers
+
+    // Collision Initializers
+
+    AABB JInitialize_AABB(Vector2 Position, Vector2 Size) {
+        Vector2 Half = {Size.x * .5f, Size.y * .5f};
+
+        AABB Box;
+
+        Box.Min.x = Position.x - Half.x;
+        Box.Min.y = Position.y - Half.y;
+        Box.Max.x = Position.x + Half.x;
+        Box.Max.y = Position.y + Half.y;
+
+        return Box;
+    }
+
     // Vector2 Initializers
 
     Body2D JBody2D_Init(Vector2 Position, Vector2 Size, Shape2D Shape, BodyType2D Type, float Mass) {
@@ -444,43 +502,65 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
         BODY.Type = Type;
         BODY.Mass = Mass;
 
+        BODY.Bounds = JInitialize_AABB(Position, Size);
+
         BODY.Index = -1;
         BODY.WORLD = NULL;
 
         return BODY;
     }
 
-    Body2D JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+    Body2D *JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
         Body2D BODY = JBody2D_Init(Position, Size, SHAPE_BOX, Type, Mass);
 
         if (Jubi_IsWorldValid(WORLD) == 1) {
             int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
-            if (INDEX < 0) return (Body2D){0};  
+            if (INDEX < 0) return NULL;  
 
-            BODY.Index = INDEX;
-            BODY.WORLD = WORLD;
+            WORLD -> Bodies[INDEX].Index = INDEX;
+            WORLD -> Bodies[INDEX].WORLD = WORLD;
+
+            return &WORLD -> Bodies[INDEX];
         }
 
-        return BODY;
+        return NULL;
     }
 
     // Vector2 Physics
 
     Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime) {
-        if (Body -> Type != BODY_DYNAMIC) return Body -> Velocity;
+        if (Body == NULL || Body -> Type != BODY_DYNAMIC) return Body -> Velocity;
+        if (DeltaTime <= 0) DeltaTime = TIME_STEP;
 
         Body -> Velocity.y += GRAVITY * DeltaTime;
 
+        Body -> Velocity.x *= (1.0f - AIR_RESISTANCE);
+        Body -> Velocity.y *= (1.0f - AIR_RESISTANCE);
+
         return Body -> Velocity;
+    }
+
+    void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity) {
+        if (BODY == NULL || DeltaTime <= 0) return;
+        if (BODY -> Type == BODY_DYNAMIC && BODY -> InvMass > 0.00f) {
+            JVector2_ApplyGravity(BODY, TIME_STEP);
+
+            BODY -> Position.x += BODY -> Velocity.x * DeltaTime;
+            BODY -> Position.y += BODY -> Velocity.y * DeltaTime;
+        }
+
+        BODY -> Bounds = JInitialize_AABB(BODY -> Position, BODY -> _Size);
+
+        if (BODY -> Shape == SHAPE_CIRCLE) {
+            BODY -> ShapeData.Circle.Center = BODY -> Position;
+            BODY -> ShapeData.Circle.Radius = BODY -> _Size.x * .5f; // Assuming X is the diameter
+        }
     }
 
     // Vector2 Collision Detection
 
     int JCollision_AABBvsAABB(const AABB A, const AABB B) {
-        if (A.Min.x < B.Max.x && A.Max.x > B.Min.x && A.Min.y < B.Max.y && A.Max.y > B.Min.y)
-            return 1;
-
-        return 0;
+        return (A.Min.x < B.Max.x && A.Max.x > B.Min.x && A.Min.y < B.Max.y && A.Max.y > B.Min.y) ? 1 : 0;
     }
 
     int JCollision_CirclevsCircle(Circle2D A, Circle2D B) {
@@ -510,8 +590,30 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
     }
 
     void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B) {
-        A -> Velocity = (Vector2){0, 0};
-        B -> Velocity = (Vector2){0, 0};
+        if (!A || !B) return;
+        
+        float OverlapX = fminf(A -> Bounds.Max.x, B -> Bounds.Max.x) - fmaxf(A -> Bounds.Min.x, B -> Bounds.Min.x);
+        float OverlapY = fminf(A -> Bounds.Max.y, B -> Bounds.Max.y) - fmaxf(A -> Bounds.Min.y, B -> Bounds.Min.y);
+
+        if (OverlapX <= 0 || OverlapY <= 0) return;
+        if (OverlapX < OverlapY) {
+            float Push = OverlapX * 0.5f;
+
+            if (A -> InvMass > 0) A -> Position.x -= Push * (A -> InvMass / (A -> InvMass + B->InvMass > 0 ? (A -> InvMass + B -> InvMass) : 1));
+            if (B -> InvMass > 0) B -> Position.x += Push * (B -> InvMass / (A -> InvMass + B->InvMass > 0 ? (A -> InvMass + B -> InvMass) : 1));
+
+            A -> Velocity.x = 0; B->Velocity.x = 0;
+        } else {
+            float Push = OverlapY * 0.5f;
+
+            if (A -> InvMass > 0) A -> Position.y -= Push * (A -> InvMass / (A -> InvMass + B -> InvMass > 0 ? (A -> InvMass + B -> InvMass) : 1));
+            if (B -> InvMass > 0) B -> Position.y += Push * (B -> InvMass / (A -> InvMass + B -> InvMass > 0 ? (A -> InvMass + B -> InvMass) : 1));
+
+            A -> Velocity.y = 0; B -> Velocity.y = 0;
+        }
+
+        A -> Bounds = JInitialize_AABB(A -> Position, A -> _Size);
+        B -> Bounds = JInitialize_AABB(B -> Position, B -> _Size);
     }
 
     int JCollision_ResolveCirclevsCircle(Body2D *A, Body2D *B) {
@@ -531,3 +633,61 @@ void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
 #endif
 
 #endif
+
+/*
+
+ALLPU Software License v1.0  
+(Asuka License for Loosely Protective Use)  
+
+Copyright 2025 © Averi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and redistribute the Software for any personal or commercial purpose,
+subject to the following conditions:
+
+1. Modification and Redistribution
+   - You may modify the Software freely, provided that any modified versions
+     remain publicly available in source code form.
+   - Redistribution of both original and modified versions is allowed, provided
+     that modified versions are publicly available in source code form.
+   - Closed-source redistribution of modified versions requires explicit written
+     permission from the copyright holder.
+
+2. Derivative Works
+   - Any derivative works must comply with the source code availability rules
+     above.
+   - Derivative works may not be relicensed under a closed-source license without
+     explicit written authorization from the copyright holder.
+
+3. Attribution
+   - Attribution to the original author is recommended but not required.
+
+4. Patent Grant (Optional)
+   - The Licensor grants the Licensee a non-exclusive, worldwide, royalty-free
+     license under any patents held by the Licensor that are necessarily
+     infringed by the Software as provided. This grant terminates if the Licensee
+     initiates patent litigation claiming the Software infringes a patent.
+
+5. Disclaimer of Warranty
+   - The Software is provided "as is", without warranty of any kind, express
+     or implied.
+
+6. Limitation of Liability
+   - In no event shall the Licensor be liable for any claim, damages, or other
+     liability arising from the Software or its use.
+
+7. Enforcement and Termination
+   - Any breach of this license constitutes immediate revocation of all rights
+     granted herein.
+
+8. Severability
+   - If any provision of this License is held invalid or unenforceable under
+     applicable law, the remaining provisions remain in full force and effect.
+
+9. Governing Law
+   - This License shall be governed by and construed in accordance with the
+     laws of California, United States, without regard to its conflict of law
+     provisions.
+
+*/

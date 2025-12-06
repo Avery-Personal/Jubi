@@ -78,12 +78,12 @@ As previously stated, Jubi is made in pure C, with no use of external libraries.
 
 ### Major
 
-Jubi 0.1.4 >> 0.1.6
+Jubi 0.1.6 >> 0.2.0
+  - `JBody2D_CreateBox` function returns the copy version of the body, leading to you editing a fake/faulty body. To be fixed as of 0.2.1.
+
+Jubi 0.1.4 >> 0.1.6 >> 0.2.0
   - `Jubi_IsWorldValid` function returned a fualty value (1), with all function(s) using said function checking for a **0** value.
   - `JBody2D_CreateBox` function recieved a faulty value from `Jubi_IsWorldValid`, leading to NULL (No) world values being treated as a world, leading to silent errors in the creation process.
-
-Jubi 0.1.0 >> 0.1.6
-  - `JVector2_ApplyGravity` function used over-complicated code for a 3 lined system, alongside assigning a value rather than adding onto it. This lead to gravity not working correctly. Said function had been reworked over 3 times without this issue being fixed?
 
 ### Minor
 
