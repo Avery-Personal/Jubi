@@ -13,7 +13,7 @@
 ===========================================================
                       VERSION INFORMATION
 
-Jubi Version: 0.1.6
+Jubi Version: 0.2.1
 C Language Standard: C99
 C++ Language Standard: C++98 or C++20
 
@@ -39,8 +39,8 @@ file AND OR the end of the file.
 #endif
 
 #define JUBI_VERSION_MAJOR 0
-#define JUBI_VERSION_MINOR 1
-#define JUBI_VERSION_PATCH 6
+#define JUBI_VERSION_MINOR 2
+#define JUBI_VERSION_PATCH 0
 
 #define JUBI_MAX_BODIES 1024
 #define JUBI_MAX_SHAPES 2048
@@ -53,6 +53,15 @@ file AND OR the end of the file.
 #define TIME_STEP_120 0.008f // ~120 FPS
 
 #define PI 3.14159265358979323846
+
+// GUARDRAILS
+
+// All 'MAX' values in this guardrail section, are different from stuff like max bodies, as those or limiters from just having lots of data. Things below like the max velocity is to prevent glitching internally when velocity exceeds a certain point.
+
+#define JUBI_GUARD_MAX_VELOCITY 1000.0f
+
+#define JUBI_GUARD_MINIMUM_DELTA_TIME 0.001f
+#define JUBI_GUARD_MAX_DELTA_TIME 0.066f
 
 typedef enum {
     JUBI_TRUE,
@@ -112,6 +121,9 @@ typedef struct {
     BodyType2D Type;
 
     // The actual physiccssssss nooooooooo
+    Vector2 Force;
+    Vector2 AccumulatedForce;
+
     float Mass;
     float InvMass;
     float Restitution;
@@ -248,20 +260,14 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     }
 
     JubiResult Jubi_GetWorldError(int WORLD_VALIDITY) {
-        if (WORLD_VALIDITY == 1)
-            return JUBI_SUCCESS;
-        if (WORLD_VALIDITY == -1)
-            return JUBI_ERROR_NULL_WORLD;
-        if (WORLD_VALIDITY == -2)
-            return JUBI_ERROR_WORLD_CORRUPTED;
-        if (WORLD_VALIDITY == -3)
-            return JUBI_ERROR_WORLD_FULL;
-        if (WORLD_VALIDITY == -4)
-            return JUBI_ERROR_WORLD_DESTROYED;
-        if (WORLD_VALIDITY == -5)
-            return JUBI_ERROR_UNKNOWN;
+        if (WORLD_VALIDITY == 1) return JUBI_SUCCESS;
+        if (WORLD_VALIDITY == -1) return JUBI_ERROR_NULL_WORLD;
+        if (WORLD_VALIDITY == -2) return JUBI_ERROR_WORLD_CORRUPTED;
+        if (WORLD_VALIDITY == -3) return JUBI_ERROR_WORLD_FULL;
+        if (WORLD_VALIDITY == -4) return JUBI_ERROR_WORLD_DESTROYED;
+        if (WORLD_VALIDITY == -5) return JUBI_ERROR_UNKNOWN;
 
-        return JUBI_SUCCESS;
+        return JUBI_ERROR_UNKNOWN;
     }
 
     // World Physics
@@ -270,7 +276,7 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
         if (Jubi_IsWorldValid(WORLD) < 1) return;
 
         for (int i=0; i < WORLD -> BodyCount; i++) {
-            Jubi_IntegrateBody(&WORLD -> Bodies[i], DeltaTime, WORLD->Gravity);
+            Jubi_IntegrateBody(&WORLD -> Bodies[i], DeltaTime, WORLD -> Gravity);
         }
 
         for (int i=0; i < WORLD -> BodyCount; i++) {
@@ -289,31 +295,30 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     // Global Helpers
 
     int Jubi_GetBodyIndex(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 1 || BODY == NULL) return -1;
+        if (Jubi_IsWorldValid(WORLD) != 1 || BODY == NULL) return -1;
 
-        for (int i=0; i < WORLD -> BodyCount; i++)
-            if (&WORLD -> Bodies[i] == BODY)
-                return i;
+        for (int i=0; i < WORLD -> BodyCount; i++)  
+            if (&WORLD -> Bodies[i] == BODY) return i;
 
         return -1;
     }
 
     int Jubi_IsBodyInWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 1 || BODY == NULL) return -1;
+        if (Jubi_IsWorldValid(WORLD) != 1 || BODY == NULL) return -1;
 
         for (int i=0; i < WORLD -> BodyCount; i++)
-            if (&WORLD -> Bodies[i] == BODY)
-                return 1;
+            if (&WORLD -> Bodies[i] == BODY) return 1;
 
         return 0;
     }
 
     int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 1) return -1;
+        if (Jubi_IsWorldValid(WORLD) != 1 || BODY == NULL) return -1;
+        if (WORLD -> BodyCount >= JUBI_MAX_BODIES) return -1;
 
         int INDEX = WORLD -> BodyCount++;
 
-        WORLD -> Bodies[INDEX] = *BODY;
+        WORLD -> Bodies[INDEX] = *BODY; 
         WORLD -> Bodies[INDEX].WORLD = WORLD;
         WORLD -> Bodies[INDEX].Index = INDEX;
 
@@ -321,7 +326,7 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     }
 
     int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) == 1) return -1;
+        if (Jubi_IsWorldValid(WORLD) != 1 || BODY == NULL) return -1;
 
         int INDEX = Jubi_GetBodyIndex(WORLD, BODY);
         if (INDEX < 0) return 0;
@@ -329,6 +334,7 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
         for (int i = INDEX; i < WORLD -> BodyCount - 1; i++) {
             WORLD -> Bodies[i] = WORLD -> Bodies[i + 1];
             WORLD -> Bodies[i].Index = i;
+            WORLD -> Bodies[i].WORLD = WORLD;
         }
 
         WORLD -> Bodies[WORLD -> BodyCount - 1] = (Body2D){0};
@@ -500,8 +506,13 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
         BODY._Size = Size;
         BODY.Shape = Shape;
         BODY.Type = Type;
-        BODY.Mass = Mass;
 
+        BODY.Mass = Mass;
+        BODY.InvMass = (Mass > 0.0f) ? (1.0f / Mass) : 0.0f;
+        BODY.Restitution = 0.0f;
+        BODY.Friction = 0.0f;
+
+        BODY.ShapeData._AABB = JInitialize_AABB(Position, Size); // tbd?
         BODY.Bounds = JInitialize_AABB(Position, Size);
 
         BODY.Index = -1;
@@ -513,24 +524,28 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     Body2D *JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
         Body2D BODY = JBody2D_Init(Position, Size, SHAPE_BOX, Type, Mass);
 
-        if (Jubi_IsWorldValid(WORLD) == 1) {
-            int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
-            if (INDEX < 0) return NULL;  
+        // Rework of the century
+        if (WORLD == NULL)
+            return NULL;
+        
+        if (Jubi_IsWorldValid(WORLD) != 1) return NULL;
 
-            WORLD -> Bodies[INDEX].Index = INDEX;
-            WORLD -> Bodies[INDEX].WORLD = WORLD;
+        int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
+        if (INDEX < 0) return NULL;  
 
-            return &WORLD -> Bodies[INDEX];
-        }
+        WORLD -> Bodies[INDEX].Index = INDEX;
+        WORLD -> Bodies[INDEX].WORLD = WORLD;
 
-        return NULL;
+        return &WORLD -> Bodies[INDEX];
     }
 
     // Vector2 Physics
 
+
+
     Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime) {
         if (Body == NULL || Body -> Type != BODY_DYNAMIC) return Body -> Velocity;
-        if (DeltaTime <= 0) DeltaTime = TIME_STEP;
+        if (DeltaTime <= 0) DeltaTime = 0.033f;
 
         Body -> Velocity.y += GRAVITY * DeltaTime;
 
@@ -541,9 +556,9 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     }
 
     void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity) {
-        if (BODY == NULL || DeltaTime <= 0) return;
-        if (BODY -> Type == BODY_DYNAMIC && BODY -> InvMass > 0.00f) {
-            JVector2_ApplyGravity(BODY, TIME_STEP);
+        if (BODY == NULL || DeltaTime <= 0.0f) return;
+        if (BODY -> Type == BODY_DYNAMIC && BODY -> InvMass > 0.0f) {
+            JVector2_ApplyGravity(BODY, DeltaTime);
 
             BODY -> Position.x += BODY -> Velocity.x * DeltaTime;
             BODY -> Position.y += BODY -> Velocity.y * DeltaTime;

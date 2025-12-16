@@ -37,7 +37,7 @@ int main() {
     
     // ~1 second at 60 FPS
     for (int i=0; i < 60; i++) {
-        Jubi_StepWorld2D(&WORLD, TIME_STEP);
+        Jubi_StepWorld2D(&WORLD, 0.033f);
 
         printf("Frame: %02d | Position: (%.3f, %.3f) | Velocity: (%.3f, %.3f) | Index: %d\n", i, Box -> Position.x, Box -> Position.y, Box -> Velocity.x, Box -> Velocity.y, Box -> Index);
     }
