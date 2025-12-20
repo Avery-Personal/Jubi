@@ -4,7 +4,7 @@
 
 TEST NAME: WorldCreation.c
 CREATION DATE: 25/12/1 | International Date Format
-LAST MODIFIED: 25/12/1 | International Date Format
+LAST MODIFIED: 25/12/19 | International Date Format
 
 ===========================================================
                       TEST PURPOSE
@@ -33,10 +33,10 @@ file AND OR the end of the file.
 int main() {
     JubiWorld2D WORLD = Jubi_CreateWorld2D();
     
-    Body2D Box1 = JBody2D_CreateBox(&WORLD, (Vector2){6, 6}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
-    Body2D Box2 = JBody2D_CreateBox(&WORLD, (Vector2){2, 4}, (Vector2){1, 2}, BODY_DYNAMIC, 5.5f);
+    Body2D *Box1 = JBody2D_CreateBox(&WORLD, (Vector2){6, 6}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
+    Body2D *Box2 = JBody2D_CreateBox(&WORLD, (Vector2){2, 4}, (Vector2){1, 2}, BODY_DYNAMIC, 5.5f);
 
-    Body2D Box3 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){3, 3}, BODY_STATIC, 0.0f);
+    Body2D *Box3 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){3, 3}, BODY_STATIC, 0.0f);
     
     printf("World has %d body(s).\n", WORLD.BodyCount);
     

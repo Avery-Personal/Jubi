@@ -4,7 +4,7 @@
 
 TEST NAME: IndexChecking.c
 CREATION DATE: 25/12/2 | International Date Format
-LAST MODIFIED: 25/12/2 | International Date Format
+LAST MODIFIED: 25/12/19 | International Date Format
 
 ===========================================================
                       TEST PURPOSE
@@ -33,11 +33,11 @@ file AND OR the end of the file.
 int main() {
     JubiWorld2D WORLD = Jubi_CreateWorld2D();
 
-    Body2D Box1 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
-    Body2D Box2 = JBody2D_CreateBox(&WORLD, (Vector2){2, 2}, (Vector2){2, 2}, BODY_STATIC, 0.0f);
+    Body2D *Box1 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
+    Body2D *Box2 = JBody2D_CreateBox(&WORLD, (Vector2){2, 2}, (Vector2){2, 2}, BODY_STATIC, 0.0f);
     
-    printf("Box1 Index: %d\n", Box1.Index);
-    printf("Box2 Index: %d\n", Box2.Index);
+    printf("Box1 Index: %d\n", Box1 -> Index);
+    printf("Box2 Index: %d\n", Box2 -> Index);
     
     return 0;
 }

@@ -4,7 +4,7 @@
 
 TEST NAME: BoxCollision.c
 CREATION DATE: 25/11/29 | International Date Format
-LAST MODIFIED: 25/12/2 | International Date Format
+LAST MODIFIED: 25/12/19 | International Date Format
 
 ===========================================================
                       TEST PURPOSE
@@ -31,11 +31,11 @@ file AND OR the end of the file.
 #include <stdio.h>
 
 int main() {
-    Body2D Box1 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
-    Body2D Box2 = JBody2D_CreateBox(NULL, (Vector2){2, 2}, (Vector2){2, 2}, BODY_STATIC, 0.0f);
+    Body2D *Box1 = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 1.0f);
+    Body2D *Box2 = JBody2D_CreateBox(NULL, (Vector2){2, 2}, (Vector2){2, 2}, BODY_STATIC, 0.0f);
     
     // TODO: Automate AABB creation inside Jubi
-    if (Box1.Position.x < Box2.Position.x + Box2._Size.x && Box1.Position.x + Box1._Size.x > Box2.Position.x && Box1.Position.y < Box2.Position.y + Box2._Size.y && Box1.Position.y + Box1._Size.y > Box2.Position.y) {
+    if (Box1 -> Position.x < Box2 -> Position.x + Box2 -> _Size.x && Box1 -> Position.x + Box1 -> _Size.x > Box1 -> Position.x && Box1 -> Position.y < Box1 -> Position.y + Box1 -> _Size.y && Box1 -> Position.y + Box1 -> _Size.y > Box1 -> Position.y) {
         printf("Collision detected!\n");
     } else {
         printf("No collision.\n");

@@ -4,7 +4,7 @@
 
 TEST NAME: Velocity.c
 CREATION DATE: 25/12/3 | International Date Format
-LAST MODIFIED: 25/12/3 | International Date Format
+LAST MODIFIED: 25/12/19 | International Date Format
 
 ===========================================================
                       TEST PURPOSE
@@ -31,15 +31,17 @@ file AND OR the end of the file.
 #include <stdio.h>
 
 int main() {
-    Body2D Box = JBody2D_CreateBox(NULL, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 0.4f);
+    JubiWorld2D WORLD = Jubi_CreateWorld2D();
 
-    printf("START VELOCITY\nY Velocity: %f\n\n", Box.Velocity.y);
+    Body2D *Box = JBody2D_CreateBox(&WORLD, (Vector2){0, 0}, (Vector2){4, 4}, BODY_DYNAMIC, 0.4f);
+
+    printf("START VELOCITY\nY Velocity: %f\n\n", Box -> Velocity.y);
 
     for (int i=0; i < 10; i++) {
         // We actually have a built in function for testing for once.
-        JVector2_ApplyGravity(&Box, TIME_STEP);
+        Jubi_StepWorld2D(&WORLD, 0.033f);
 
-        printf("Y Velocity: %f\n", Box.Velocity.y);
+        printf("Y Velocity: %f\n", Box -> Velocity.y);
     }
 }
 

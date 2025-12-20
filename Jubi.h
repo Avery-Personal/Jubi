@@ -6,7 +6,7 @@
     A simple 2D physics library for C/C++ projects.
 
     Early Development | IN DEVELOPMENT
-    Created by Avery | GitHub: @Avery-Personal
+    Created by Averi | GitHub: @Avery-Personal
 
     License: ALLPU License
 
@@ -52,16 +52,35 @@ file AND OR the end of the file.
 #define TIME_STEP 0.016f // ~60 FPS
 #define TIME_STEP_120 0.008f // ~120 FPS
 
+#define JUBI_INT8 signed char
+#define JUBI_UINT8 unsigned char
+
+#define JUBI_INT16 short
+#define JUBI_UINT16 unsigned short
+
+#define JUBI_INT32 int
+#define JUBI_UINT32 unsigned int
+
+#define JUBI_INT64 long long
+#define JUBI_UINT64 unsigned long long
+
 #define PI 3.14159265358979323846
 
 // GUARDRAILS
 
-// All 'MAX' values in this guardrail section, are different from stuff like max bodies, as those or limiters from just having lots of data. Things below like the max velocity is to prevent glitching internally when velocity exceeds a certain point.
+// All 'MAX' values in this guardrail section, are different from limiters like max bodies, as those are for preventing lots of data to be ran continuously. Things below like the max velocity is to prevent glitching internally when velocity exceeds a certain point.
 
 #define JUBI_GUARD_MAX_VELOCITY 1000.0f
 
 #define JUBI_GUARD_MINIMUM_DELTA_TIME 0.001f
 #define JUBI_GUARD_MAX_DELTA_TIME 0.066f
+
+// Internal Variables
+
+static JUBI_UINT64 Jubi_GT = 0;
+static JUBI_UINT64 Jubi_ErrorTick = 0;
+
+// Struct(s)
 
 typedef enum {
     JUBI_TRUE,
@@ -77,9 +96,22 @@ typedef enum {
     JUBI_ERROR_WORLD_FULL,
     JUBI_ERROR_NULL_BODY,
     JUBI_ERROR_BODY_NOT_IN_WORLD,
+    JUBI_ERROR_BODY_NOT_VALID,
+
+    JUBI_ERROR_INVALID_VALUE,
+    JUBI_ERROR_NULL_VALUE,
 
     JUBI_ERROR_UNKNOWN = -1,
 } JubiResult;
+
+typedef struct {
+    JubiResult Code;
+
+    const char *Function;
+    const char *Message;
+
+    JUBI_UINT64 ErrorTick;
+} JubiError;
 
 typedef enum {
     SHAPE_CIRCLE,
@@ -153,7 +185,32 @@ struct JubiWorld2D {
 
 #define JUBI_SUCCESSFUL(Result) ((Result) == JUBI_SUCCESS)
 
+// Internal state of the error system
+static JubiError LAST_ERROR = {
+    .Code = JUBI_SUCCESS,
+    .Function = NULL
+};
+
 // Jubi Functions
+
+// Error Functions
+
+// [GLOBAL] Error Functions
+
+JubiError Jubi_GetLastError(void);
+JubiResult Jubi_GetLastErrorCode(void);
+const char *Jubi_GetErrorMessage(JubiResult Code);
+
+JUBI_UINT64 Jubi_AccumulatedErrors(void);
+
+void Jubi_ClearError(void);
+
+// [PRIVATE] Error Function(s)
+
+static void Jubi__IncrementErrorTick(void);
+static void Jubi__SetError(JubiResult CODE, const char *FUNCTION);
+
+#define JUBI_FAIL(CODE) Jubi__SetError((CODE), __func__)
 
 // World Management
 
@@ -169,6 +226,16 @@ int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY);
 int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY);
 
 void Jubi_StepWorld2D(JubiWorld2D *WORLD, float DeltaTime);
+
+// Customization
+
+void Jubi_ChangeMaxBodies(int BODYCOUNT);
+void Jubi_ChangeMaxVelocity(float VELOCITY);
+
+void Jubi_ChangeMinimumDeltaTime(float DELTATIME);
+void Jubi_ChangeMaxDeltaTime(float DELTATIME);
+
+void Jubi_ChangeWorldGravity(JubiWorld2D *WORLD, float _GRAVITY);
 
 // Vector2 Math
 
@@ -196,10 +263,16 @@ float JClamp(float Value, float MIN, float MAX);
 
 Body2D JBody2D_Init(Vector2 Position, Vector2 Size, Shape2D Shape, BodyType2D Type, float Mass);
 Body2D *JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass);
+Body2D *JBody2D_CreateCircle(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass);
 
 // Vector2 Physics
 
+void JBody2D_ApplyForce(Body2D *BODY, Vector2 FORCE);
+void JBody2D_ApplyImpulse(Body2D *BODY, Vector2 IMPULSE);
 Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime);
+
+void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
+void Jubi_StepBody2D(Body2D *BODY, float DeltaTime, float Gravity);
 
 // Vector2 Collision Detection
 
@@ -208,8 +281,6 @@ int JCollision_CirclevsCircle(Circle2D A, Circle2D B);
 int JCollision_AABBvsCircle(AABB A, Circle2D B);
 
 void JCollision_ResolveAABBvsAABB(Body2D *A, Body2D *B);
-
-void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
 
 #ifdef JUBI_IMPLEMENTATION
     // Implementation
@@ -259,6 +330,8 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
         return 1;
     }
 
+    // Error Handling
+
     JubiResult Jubi_GetWorldError(int WORLD_VALIDITY) {
         if (WORLD_VALIDITY == 1) return JUBI_SUCCESS;
         if (WORLD_VALIDITY == -1) return JUBI_ERROR_NULL_WORLD;
@@ -270,10 +343,67 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
         return JUBI_ERROR_UNKNOWN;
     }
 
+    static void Jubi__SetError(JubiResult CODE, const char *FUNCTION) {
+        if (LAST_ERROR.Code != JUBI_SUCCESS && LAST_ERROR.ErrorTick == Jubi_ErrorTick)
+            return;
+
+        LAST_ERROR.Code = CODE;
+        LAST_ERROR.Function = FUNCTION;
+        LAST_ERROR.ErrorTick = Jubi_ErrorTick;
+
+        LAST_ERROR.Message = Jubi_GetErrorMessage(LAST_ERROR.Code);
+    }
+
+    JubiError Jubi_GetLastError(void) {
+        return LAST_ERROR;
+    }
+
+    JubiResult Jubi_GetLastErrorCode(void) {
+        return LAST_ERROR.Code;
+    }
+
+    const char *Jubi_GetErrorMessage(JubiResult CODE) {
+        switch (CODE) {
+            case JUBI_SUCCESS: return "Success";
+
+            case JUBI_ERROR_NULL_WORLD: return "World pointer is NULL";
+            case JUBI_ERROR_WORLD_CORRUPTED: return "World is corrupted";
+            case JUBI_ERROR_WORLD_DESTROYED: return "World has been destroyed";
+            case JUBI_ERROR_WORLD_FULL: return "World body capacity reached";
+            case JUBI_ERROR_NULL_BODY: return "Body pointer is NULL";
+            case JUBI_ERROR_BODY_NOT_IN_WORLD: return "Body is not in the world";
+            case JUBI_ERROR_BODY_NOT_VALID: return "Body data is not valid";
+            case JUBI_ERROR_INVALID_VALUE: return "Inputted data is not valid";
+
+            default: return "Unknown Jubi error";
+        }
+    }
+
+    static void Jubi__IncrementErrorTick(void) {
+        Jubi_ErrorTick++;
+    }
+
+    JUBI_UINT64 Jubi_AccumulatedErrors(void) {
+        return Jubi_ErrorTick;
+    }
+
+    void Jubi_ClearError(void) {
+        LAST_ERROR.Code = JUBI_SUCCESS;
+        LAST_ERROR.Function = NULL;
+
+        LAST_ERROR.Message = NULL;
+    }
+
     // World Physics
 
     void Jubi_StepWorld2D(JubiWorld2D *WORLD, float DeltaTime) {
-        if (Jubi_IsWorldValid(WORLD) < 1) return;
+        Jubi__IncrementErrorTick();
+        
+        if (Jubi_IsWorldValid(WORLD) < 1) {
+            Jubi__SetError(Jubi_GetWorldError(Jubi_IsWorldValid(WORLD)), __func__);
+
+            return;
+        };
 
         for (int i=0; i < WORLD -> BodyCount; i++) {
             Jubi_IntegrateBody(&WORLD -> Bodies[i], DeltaTime, WORLD -> Gravity);
@@ -313,8 +443,23 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     }
 
     int Jubi_AddBodyToWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) != 1 || BODY == NULL) return -1;
-        if (WORLD -> BodyCount >= JUBI_MAX_BODIES) return -1;
+        Jubi__IncrementErrorTick();
+        
+        if (Jubi_IsWorldValid(WORLD) != 1) {
+            Jubi__SetError(Jubi_GetWorldError(Jubi_IsWorldValid(WORLD)), __func__);
+
+            return -1;
+        } else if (BODY == NULL) {
+            Jubi__SetError(JUBI_ERROR_NULL_BODY, __func__);
+
+            return -1;
+        }
+
+        if (WORLD -> BodyCount >= JUBI_MAX_BODIES) {
+            Jubi__SetError(JUBI_ERROR_WORLD_FULL, __func__);
+        
+            return -1;
+        }
 
         int INDEX = WORLD -> BodyCount++;
 
@@ -326,7 +471,17 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     }
 
     int Jubi_RemoveBodyFromWorld(JubiWorld2D *WORLD, Body2D *BODY) {
-        if (Jubi_IsWorldValid(WORLD) != 1 || BODY == NULL) return -1;
+        Jubi__IncrementErrorTick();
+        
+        if (Jubi_IsWorldValid(WORLD) != 1) {
+            Jubi__SetError(Jubi_GetWorldError(Jubi_IsWorldValid(WORLD)), __func__);
+
+            return -1;
+        } else if (BODY == NULL) {
+            Jubi__SetError(JUBI_ERROR_NULL_BODY, __func__);
+
+            return -1;
+        }
 
         int INDEX = Jubi_GetBodyIndex(WORLD, BODY);
         if (INDEX < 0) return 0;
@@ -522,13 +677,21 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
     }
 
     Body2D *JBody2D_CreateBox(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+        Jubi__IncrementErrorTick();
+        
         Body2D BODY = JBody2D_Init(Position, Size, SHAPE_BOX, Type, Mass);
 
-        // Rework of the century
-        if (WORLD == NULL)
+        if (WORLD == NULL) {
+            Jubi__SetError(JUBI_ERROR_NULL_WORLD, __func__);
+
             return NULL;
+        }
         
-        if (Jubi_IsWorldValid(WORLD) != 1) return NULL;
+        if (Jubi_IsWorldValid(WORLD) != 1) {
+            Jubi__SetError(Jubi_GetWorldError(Jubi_IsWorldValid(WORLD)), __func__);
+
+            return NULL;
+        }
 
         int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
         if (INDEX < 0) return NULL;  
@@ -539,29 +702,111 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
         return &WORLD -> Bodies[INDEX];
     }
 
+    Body2D *JBody2D_CreateCircle(JubiWorld2D *WORLD, Vector2 Position, Vector2 Size, BodyType2D Type, float Mass) {
+        Jubi__IncrementErrorTick();
+        
+        Body2D BODY = JBody2D_Init(Position, Size, SHAPE_CIRCLE, Type, Mass);
+
+        if (WORLD == NULL) {
+            Jubi__SetError(JUBI_ERROR_NULL_WORLD, __func__);
+
+            return NULL;
+        }
+        
+        if (Jubi_IsWorldValid(WORLD) != 1) {
+            Jubi__SetError(Jubi_GetWorldError(Jubi_IsWorldValid(WORLD)), __func__);
+
+            return NULL;
+        }
+
+        int INDEX = Jubi_AddBodyToWorld(WORLD, &BODY);
+        if (INDEX < 0) return NULL;
+
+        WORLD -> Bodies[INDEX].Index = INDEX;
+        WORLD -> Bodies[INDEX].WORLD = WORLD;
+
+        return &WORLD -> Bodies[INDEX];
+    }
+
     // Vector2 Physics
 
+    void JBody2D_ApplyForce(Body2D *BODY, Vector2 FORCE) {
+        Jubi__IncrementErrorTick();
+        
+        if (BODY == NULL || BODY -> Type != BODY_DYNAMIC) {
+            Jubi__SetError(JUBI_ERROR_BODY_NOT_VALID, __func__);
+            
+            return;
+        }
 
+        BODY -> AccumulatedForce.x += FORCE.x;
+        BODY -> AccumulatedForce.y += FORCE.y;
+    }
+
+    void JBody2D_ApplyImpulse(Body2D *BODY, Vector2 IMPULSE) {
+        Jubi__IncrementErrorTick();
+        
+        if (BODY == NULL || BODY -> Type != BODY_DYNAMIC) {
+            Jubi__SetError(JUBI_ERROR_BODY_NOT_VALID, __func__);
+            
+            return;
+        }
+
+        if (BODY -> Mass > 0) {
+            BODY -> Velocity.x += IMPULSE.x * BODY -> InvMass;
+            BODY -> Velocity.y += IMPULSE.y * BODY -> InvMass;
+        }
+    }
 
     Vector2 JVector2_ApplyGravity(Body2D *Body, float DeltaTime) {
-        if (Body == NULL || Body -> Type != BODY_DYNAMIC) return Body -> Velocity;
+        Jubi__IncrementErrorTick();
+        
+        if (Body == NULL || Body -> Type != BODY_DYNAMIC) {
+            Jubi__SetError(JUBI_ERROR_BODY_NOT_VALID, __func__);
+            
+            return (Vector2){0};
+        }
+
         if (DeltaTime <= 0) DeltaTime = 0.033f;
 
-        Body -> Velocity.y += GRAVITY * DeltaTime;
+        Vector2 GravityForce = (Vector2){0, Body -> Mass * GRAVITY};
 
-        Body -> Velocity.x *= (1.0f - AIR_RESISTANCE);
-        Body -> Velocity.y *= (1.0f - AIR_RESISTANCE);
+        JBody2D_ApplyForce(Body, GravityForce);
 
-        return Body -> Velocity;
+        return Body -> AccumulatedForce;
     }
 
     void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity) {
-        if (BODY == NULL || DeltaTime <= 0.0f) return;
+        Jubi__IncrementErrorTick();
+
+        if (BODY == NULL) {
+            Jubi__SetError(JUBI_ERROR_NULL_BODY, __func__);
+            
+            return;
+        } else if (DeltaTime <= 0.0f) {
+            Jubi__SetError(JUBI_ERROR_INVALID_VALUE, __func__);
+            
+            return;
+        }
+
         if (BODY -> Type == BODY_DYNAMIC && BODY -> InvMass > 0.0f) {
             JVector2_ApplyGravity(BODY, DeltaTime);
 
+            Vector2 Acceleration = {
+                BODY -> AccumulatedForce.x * BODY -> InvMass,
+                BODY -> AccumulatedForce.y * BODY -> InvMass,
+            };
+
+            BODY -> Velocity.x += Acceleration.x * DeltaTime;
+            BODY -> Velocity.y += Acceleration.y * DeltaTime;
+
+            BODY -> Velocity.x *= (1.0f - AIR_RESISTANCE);
+            BODY -> Velocity.y *= (1.0f - AIR_RESISTANCE);
+
             BODY -> Position.x += BODY -> Velocity.x * DeltaTime;
             BODY -> Position.y += BODY -> Velocity.y * DeltaTime;
+
+            BODY -> AccumulatedForce = (Vector2){0};
         }
 
         BODY -> Bounds = JInitialize_AABB(BODY -> Position, BODY -> _Size);
@@ -570,6 +815,10 @@ void Jubi_IntegrateBody(Body2D *BODY, float DeltaTime, float Gravity);
             BODY -> ShapeData.Circle.Center = BODY -> Position;
             BODY -> ShapeData.Circle.Radius = BODY -> _Size.x * .5f; // Assuming X is the diameter
         }
+    }
+
+    void Jubi_StepBody2D(Body2D *BODY, float DeltaTime, float Gravity) {
+        Jubi_IntegrateBody(BODY, DeltaTime, BODY -> WORLD ? BODY -> WORLD -> Gravity : GRAVITY);
     }
 
     // Vector2 Collision Detection

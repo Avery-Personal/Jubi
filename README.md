@@ -1,6 +1,6 @@
-# Jubi v0.1.6
+# Jubi v0.2.1
 
-**Version:** 0.1.6  
+**Version:** 0.2.1  
 **License:** ALLPU or MIT  
 **Copyright © 2025 Averi**  
 
@@ -78,12 +78,7 @@ As previously stated, Jubi is made in pure C, with no use of external libraries.
 
 ### Major
 
-Jubi 0.1.6 >> 0.2.0
-  - `JBody2D_CreateBox` function returns the copy version of the body, leading to you editing a fake/faulty body. To be fixed as of 0.2.1.
-
-Jubi 0.1.4 >> 0.1.6 >> 0.2.0
-  - `Jubi_IsWorldValid` function returned a fualty value (1), with all function(s) using said function checking for a **0** value.
-  - `JBody2D_CreateBox` function recieved a faulty value from `Jubi_IsWorldValid`, leading to NULL (No) world values being treated as a world, leading to silent errors in the creation process.
+As of said version, Jubi has no *known* major issues to its code.
 
 ### Minor
 
@@ -109,13 +104,15 @@ Macros `JUBI_VERSION_MAJOR`, `JUBI_VERSION_MINOR`, and `JUBI_VERSION_PATCH` are 
 
 ### Create / Destroy
 
-```C
+```CPP
 JubiWorld2D Jubi_CreateWorld2D(void);
 void Jubi_ClearWorld2D(JubiWorld2D *WORLD);
+void Juib_DestroyWorld2D(JubiWorld2D *WORLD);
 ```
 
 > `Jubi_CreateWorld2D(void)` - Creates a new world with default gravity & an empty body list   
-> `Jubi_ClearWorld2D(JubiWorld2D *WORLD)` - Resets all   
+> `Jubi_ClearWorld2D(JubiWorld2D *WORLD)` - Resets all data inside the world, including all bodies and their values   
+> `Jubi_DestroyWorld2D(JubiWorld2D *WORLD)` - Destroys the world permanantly, and cannot be edited, function wise
 
 # License
 
